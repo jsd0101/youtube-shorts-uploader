@@ -1,0 +1,19 @@
+# Environment
+.env
+*.pyc
+__pycache__/
+.DS_Store
+
+# Secrets (NEVER commit)
+client_secret.json
+token.json
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Temp
+/tmp
+*.log
