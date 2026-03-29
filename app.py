@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect
 import os
 
 app = Flask(__name__)
@@ -15,8 +15,30 @@ def status():
         "port": os.getenv('PORT', '5000')
     })
 
+@app.route("/auth/login")
+def login():
+    return jsonify({
+        "status": "redirect",
+        "message": "Google 로그인 페이지",
+        "url": "https://accounts.google.com/o/oauth2/v2/auth"
+    })
+
+@app.route("/auth/logout")
+def logout():
+    return jsonify({
+        "status": "success",
+        "message": "로그아웃 완료"
+    })
+
+@app.route("/upload", methods=['GET', 'POST'])
+def upload():
+    return jsonify({
+        "status": "ready",
+        "message": "YouTube 업로드 준비",
+        "methods": ["GET", "POST"]
+    })
+
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5000))
     print(f"INFO: Flask 시작! PORT={port}")
     app.run(host="0.0.0.0", port=port, debug=False)
-
