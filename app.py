@@ -1,11 +1,11 @@
-from flask import Flask, jsonify, redirect
+from flask import Flask, jsonify, send_from_directory
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 
 @app.route("/")
 def home():
-    return "Flask 서버 정상 실행!"
+    return send_from_directory('.', 'index.html')
 
 @app.route("/status")
 def status():
@@ -19,8 +19,8 @@ def status():
 def login():
     return jsonify({
         "status": "redirect",
-        "message": "Google 로그인 페이지",
-        "url": "https://accounts.google.com/o/oauth2/v2/auth"
+        "message": "Google 로그인으로 이동",
+        "redirect_url": "https://accounts.google.com/o/oauth2/v2/auth"
     })
 
 @app.route("/auth/logout")
@@ -30,11 +30,11 @@ def logout():
         "message": "로그아웃 완료"
     })
 
-@app.route("/upload", methods=['GET', 'POST'])
+@app.route("/upload")
 def upload():
     return jsonify({
         "status": "ready",
-        "message": "YouTube 업로드 준비",
+        "message": "YouTube 업로드 준비 완료",
         "methods": ["GET", "POST"]
     })
 
