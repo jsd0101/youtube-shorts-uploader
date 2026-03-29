@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Shorts 업로더</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 50px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #999;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            grid-column: span 2;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #ee5a52;
+            transform: translateY(-2px);
+        }
+        
+        .result {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .result-content {
+            color: #666;
+            font-size: 14px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .status-running {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎬</div>
+            <h1>YouTube Shorts</h1>
+            <p class="subtitle">자동 업로드 도구</p>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-secondary" onclick="checkStatus()">
+                📊 상태 확인
+            </button>
+            <button class="btn-secondary" onclick="uploadVideo()">
+                📤 업로드
+            </button>
+            <button class="btn-primary" onclick="login()">
+                🔐 Google 로그인
+            </button>
+            <button class="btn-danger" onclick="logout()">
+                🚪 로그아웃
+            </button>
+        </div>
+        
+        <div id="result" class="result">
+            <div class="result-title" id="resultTitle">응답 결과</div>
+            <div class="result-content" id="resultContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        const baseURL = window.location.origin;
+        
+        function showResult(title, data) {
+            const resultDiv = document.getElementById('result');
+            const titleDiv = document.getElementById('resultTitle');
+            const contentDiv = document.getElementById('resultContent');
+            
+            titleDiv.textContent = title;
+            if (typeof data === 'object') {
+                contentDiv.textContent = JSON.stringify(data, null, 2);
+            } else {
+                contentDiv.textContent = data;
+            }
+            
+            resultDiv.classList.add('show');
+        }
+        
+        function showLoading(title) {
+            const resultDiv = document.getElementById('result');
+            const titleDiv = document.getElementById('resultTitle');
+            const contentDiv = document.getElementById('resultContent');
+            
+            titleDiv.textContent = title;
+            contentDiv.innerHTML = '<div class="loading"></div> 로딩 중...';
+            resultDiv.classList.add('show');
+        }
+        
+        function checkStatus() {
+            showLoading('상태 확인 중...');
+            fetch(`${baseURL}/status`)
+                .then(r => r.json())
+                .then(data => {
+                    showResult('✅ 서버 상태', data);
+                })
+                .catch(err => {
+                    showResult('❌ 오류', err.message);
+                });
+        }
+        
+        function login() {
+            showLoading('Google 로그인 중...');
+            fetch(`${baseURL}/auth/login`)
+                .then(r => r.json())
+                .then(data => {
+                    showResult('🔐 로그인 정보', data);
+                })
+                .catch(err => {
+                    showResult('❌ 오류', err.message);
+                });
+        }
+        
+        function logout() {
+            showLoading('로그아웃 중...');
+            fetch(`${baseURL}/auth/logout`)
+                .then(r => r.json())
+                .then(data => {
+                    showResult('🚪 로그아웃', data);
+                })
+                .catch(err => {
+                    showResult('❌ 오류', err.message);
+                });
+        }
+        
+        function uploadVideo() {
+            showLoading('업로드 준비 중...');
+            fetch(`${baseURL}/upload`)
+                .then(r => r.json())
+                .then(data => {
+                    showResult('📤 업로드 상태', data);
+                })
+                .catch(err => {
+                    showResult('❌ 오류', err.message);
+                });
+        }
+        
+        // 페이지 로드 시 상태 확인
+        window.addEventListener('load', () => {
+            checkStatus();
+        });
+    </script>
+</body>
+</html>
