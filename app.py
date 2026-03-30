@@ -69,6 +69,7 @@ def login():
         )
         session['oauth_state'] = state
         print(f"✅ 로그인 URL 생성: {auth_url[:50]}...")
+        print(f"✅ State 저장: {state[:20]}...")
         return redirect(auth_url)
     except Exception as e:
         print(f'❌ ERROR in /auth/login: {e}')
@@ -88,6 +89,21 @@ def callback():
             "status": "error",
             "message": f"인증 실패: {error}"
         }), 400
+    
+    # ✅ State 검증 (CSRF 방지)
+    request_state = request.args.get('state')
+    session_state = session.get('oauth_state')
+    
+    if not request_state or request_state != session_state:
+        print(f"❌ State 검증 실패: request={request_state[:20] if request_state else None}..., session={session_state[:20] if session_state else None}...")
+        return jsonify({
+            "status": "error",
+            "message": "State 검증 실패 - 보안 오류"
+        }), 400
+    
+    # State 검증 성공 후 세션에서 제거 (일회용)
+    session.pop('oauth_state', None)
+    print("✅ State 검증 성공 & 제거")
     
     flow = get_flow()
     if not flow:
@@ -130,6 +146,7 @@ def logout():
     session.pop('access_token', None)
     session.pop('refresh_token', None)
     session.pop('token_expiry', None)
+    session.pop('oauth_state', None)
     
     print("✅ 로그아웃 완료")
     return jsonify({
