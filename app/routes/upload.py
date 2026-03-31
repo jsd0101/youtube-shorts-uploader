@@ -11,30 +11,26 @@ file_handler = FileHandler()
 
 @upload_bp.route('/', methods=['GET', 'POST'])
 def upload_video():
-    """파일 업로드 처리"""
+    """Handle file upload"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
     
     if request.method == 'GET':
         return jsonify({'status': 'ready', 'message': 'Upload endpoint active'}), 200
     
-    # POST: 파일 업로드
+    # POST handling
     if 'file' not in request.files:
         return jsonify({'status': 'error', 'message': 'No file part'}), 400
     
     file = request.files['file']
     user_id = session['user_id']
     
-    # 파일 검증
     is_valid, errors = file_handler.validate_file(file)
     if not is_valid:
         return jsonify({'status': 'error', 'message': errors}), 400
     
-    # 파일 저장
     try:
         filename, filepath, size = file_handler.save_file(file, user_id)
-        
-        # DB에 Upload 레코드 생성
         upload_record = Upload(
             user_id=user_id,
             filename=filename,
@@ -45,7 +41,6 @@ def upload_video():
         )
         db.session.add(upload_record)
         db.session.commit()
-        
         return jsonify({
             'status': 'success',
             'message': 'File uploaded successfully',
@@ -59,13 +54,11 @@ def upload_video():
 
 @upload_bp.route('/history', methods=['GET'])
 def upload_history():
-    """사용자 업로드 기록 조회"""
+    """Return a list of the user's upload records"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
-    
     user_id = session['user_id']
     uploads = Upload.query.filter_by(user_id=user_id).order_by(Upload.created_at.desc()).all()
-    
     return jsonify({
         'status': 'success',
         'uploads': [
