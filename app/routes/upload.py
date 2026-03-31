@@ -4,6 +4,7 @@ from app.utils import FileHandler
 from app.models import Upload
 from app import db
 from datetime import datetime
+from werkzeug.utils import secure_filename
 
 upload_bp = Blueprint('upload', __name__, url_prefix='/upload')
 file_handler = FileHandler()
