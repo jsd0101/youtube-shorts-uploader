@@ -1,86 +1,76 @@
 # app/utils/file_handler.py
 import os
-import mimetypes
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
 class FileHandler:
-    """동영상 파일 처리 유틸"""
+    """파일 업로드 검증 및 저장 클래스"""
     
-    # 설정
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'webm', 'flv'}
     MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', '..', 'uploads')
     
-    @classmethod
-    def init_upload_folder(cls):
+    def __init__(self):
+        # Railway 임시 저장소 사용
+        self.UPLOAD_FOLDER = '/tmp/uploads'
+        self.init_upload_folder()
+    
+    def init_upload_folder(self):
         """업로드 폴더 생성"""
-        os.makedirs(cls.UPLOAD_FOLDER, exist_ok=True)
+        if not os.path.exists(self.UPLOAD_FOLDER):
+            os.makedirs(self.UPLOAD_FOLDER, exist_ok=True)
+            print(f"✅ Upload folder created: {self.UPLOAD_FOLDER}")
     
-    @classmethod
-    def validate_file(cls, file):
-        """파일 검증 (확장자, 크기, MIME 타입)"""
+    def validate_file(self, file):
+        """파일 검증"""
         errors = []
         
+        # 1. 파일 존재 확인
         if not file or file.filename == '':
-            errors.append('파일을 선택해주세요')
-            return False, errors
+            return False, "파일을 선택하세요"
         
-        # 1. 파일명 검증
+        # 2. 파일명 보안 검증
         filename = secure_filename(file.filename)
         if not filename:
-            errors.append('유효하지 않은 파일명입니다')
-            return False, errors
+            return False, "잘못된 파일명입니다"
         
-        # 2. 확장자 검증
+        # 3. 확장자 검증
         ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
-        if ext not in cls.ALLOWED_EXTENSIONS:
-            errors.append(f'지원하지 않는 형식입니다. (지원: {", ".join(cls.ALLOWED_EXTENSIONS)})')
-            return False, errors
+        if ext not in self.ALLOWED_EXTENSIONS:
+            return False, f"지원하지 않는 형식입니다. 허용: {', '.join(self.ALLOWED_EXTENSIONS)}"
         
-        # 3. MIME 타입 검증
-        mime_type, _ = mimetypes.guess_type(filename)
-        if not mime_type or not mime_type.startswith('video'):
-            errors.append('동영상 파일만 업로드 가능합니다')
-            return False, errors
+        # 4. MIME 타입 검증
+        if not file.content_type or not file.content_type.startswith('video/'):
+            return False, "영상 파일만 업로드 가능합니다"
         
-        # 4. 파일 크기 검증
+        # 5. 파일 크기 검증
         file.seek(0, os.SEEK_END)
-        file_size = file.tell()
+        size = file.tell()
         file.seek(0)
         
-        if file_size > cls.MAX_FILE_SIZE:
-            errors.append(f'파일이 너무 큽니다 (최대: 500MB, 현재: {file_size / 1024 / 1024:.2f}MB)')
-            return False, errors
+        if size == 0:
+            return False, "빈 파일입니다"
+        if size > self.MAX_FILE_SIZE:
+            return False, f"파일 크기가 너무 큽니다 (최대 500MB)"
         
-        if file_size == 0:
-            errors.append('빈 파일입니다')
-            return False, errors
-        
-        return True, []
+        return True, None
     
-    @classmethod
-    def save_file(cls, file, user_id):
-        """파일을 서버에 저장하고 경로 반환"""
-        cls.init_upload_folder()
+    def save_file(self, file, user_id):
+        """파일 저장 및 정보 반환"""
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        original_ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{timestamp}_user{user_id}_{secure_filename(file.filename)}"
+        filepath = os.path.join(self.UPLOAD_FOLDER, filename)
         
-        # 파일명 생성: timestamp_userid_originalname
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = secure_filename(file.filename)
-        new_filename = f"{timestamp}_user{user_id}_{filename}"
-        filepath = os.path.join(cls.UPLOAD_FOLDER, new_filename)
-        
-        # 파일 저장
-        file.save(filepath)
-        
-        return {
-            'filename': new_filename,
-            'filepath': filepath,
-            'file_size': os.path.getsize(filepath)
-        }
+        try:
+            file.save(filepath)
+            size = os.path.getsize(filepath)
+            print(f"✅ File saved: {filename} ({size} bytes)")
+            return filename, filepath, size
+        except Exception as e:
+            print(f"❌ File save error: {str(e)}")
+            raise Exception(f"파일 저장 실패: {str(e)}")
     
-    @classmethod
-    def get_file_info(cls, filepath):
+    def get_file_info(self, filepath):
         """파일 정보 조회"""
         if not os.path.exists(filepath):
             return None
