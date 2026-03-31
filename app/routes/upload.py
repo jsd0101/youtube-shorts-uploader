@@ -1,13 +1,23 @@
 # app/routes/upload.py
 from flask import Blueprint, request, jsonify, session
-from app.utils import FileHandler
-from app.models import Upload
-from app import db
 from datetime import datetime
 from werkzeug.utils import secure_filename
 
+def get_db_and_models():
+    from app import db
+    from app.models import Upload
+    return db, Upload
+
 upload_bp = Blueprint('upload', __name__, url_prefix='/upload')
-file_handler = FileHandler()
+
+_file_handler = None
+
+def get_file_handler():
+    global _file_handler
+    if _file_handler is None:
+        from app.utils import FileHandler
+        _file_handler = FileHandler()
+    return _file_handler
 
 @upload_bp.route('/', methods=['GET', 'POST'])
 def upload_video():
@@ -18,12 +28,12 @@ def upload_video():
     if request.method == 'GET':
         return jsonify({'status': 'ready', 'message': 'Upload endpoint active'}), 200
     
-    # POST handling
     if 'file' not in request.files:
         return jsonify({'status': 'error', 'message': 'No file part'}), 400
     
     file = request.files['file']
     user_id = session['user_id']
+    file_handler = get_file_handler()
     
     is_valid, errors = file_handler.validate_file(file)
     if not is_valid:
@@ -31,6 +41,8 @@ def upload_video():
     
     try:
         filename, filepath, size = file_handler.save_file(file, user_id)
+        db, Upload = get_db_and_models()
+        
         upload_record = Upload(
             user_id=user_id,
             filename=filename,
@@ -41,6 +53,7 @@ def upload_video():
         )
         db.session.add(upload_record)
         db.session.commit()
+        
         return jsonify({
             'status': 'success',
             'message': 'File uploaded successfully',
@@ -49,6 +62,7 @@ def upload_video():
             'size': size
         }), 200
     except Exception as e:
+        db, Upload = get_db_and_models()
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -57,8 +71,11 @@ def upload_history():
     """Return a list of the user's upload records"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    
     user_id = session['user_id']
+    db, Upload = get_db_and_models()
     uploads = Upload.query.filter_by(user_id=user_id).order_by(Upload.created_at.desc()).all()
+    
     return jsonify({
         'status': 'success',
         'uploads': [
