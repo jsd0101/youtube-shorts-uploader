@@ -1,11 +1,11 @@
 # app/models.py
-from app import db
 from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
 
 class User(db.Model):
-    """사용자 모델"""
     __tablename__ = 'users'
-    
     id = db.Column(db.Integer, primary_key=True)
     google_id = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
@@ -13,15 +13,9 @@ class User(db.Model):
     profile_picture = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # 관계
-    uploads = db.relationship('Upload', backref='user', lazy=True, cascade='all, delete-orphan')
-    tokens = db.relationship('Token', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class Upload(db.Model):
-    """업로드 모델"""
     __tablename__ = 'uploads'
-    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
@@ -33,9 +27,7 @@ class Upload(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Token(db.Model):
-    """OAuth 토큰 모델"""
     __tablename__ = 'tokens'
-    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     access_token = db.Column(db.Text, nullable=False)
