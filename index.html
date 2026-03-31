@@ -95,7 +95,7 @@
             console.log('📱 페이지 로드 완료');
             checkStatus();
             setupFileDragDrop();
-            loadUploadHistory();
+            // loadUploadHistory();  // 임시 비활성화
         });
         
         function checkStatus() {
@@ -214,7 +214,7 @@
                     alert('파일이 성공적으로 업로드되었습니다!');
                     fileInput.value = '';
                     document.getElementById('uploadBtn').style.display = 'none';
-                    loadUploadHistory();
+                    // loadUploadHistory();  // 임시 비활성화
                 })
                 .catch(e => {
                     console.error('❌ 업로드 실패:', e);
