@@ -1,78 +1,119 @@
 from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 import os
-from app.models import Upload, db
-from app.utils.file_handler import FileHandler
+import logging
+from app.models import Upload, db, User
 from app.services.youtube_service import YouTubeService
 
+logger = logging.getLogger(__name__)
+
 upload_bp = Blueprint('upload', __name__, url_prefix='/upload')
-
 ALLOWED_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv'}
-MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(fname):
+    return '.' in fname and fname.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @upload_bp.route('/', methods=['GET', 'POST'])
 def upload_video():
+    """Upload video to YouTube"""
+    logger.info("=== Upload request started ===")
+    
     if request.method == 'GET':
+        logger.info("GET /upload/ - returning ready message")
         return jsonify({'message': 'Upload endpoint ready'}), 200
     
-    # POST 요청 처리
+    # POST request
+    logger.info("POST /upload/ - processing upload")
+    
     if 'user_id' not in session:
+        logger.error("Not authenticated - no user_id in session")
         return jsonify({'error': 'Not authenticated'}), 401
     
-    user_id = session['user_id']
+    logger.info(f"User ID: {session['user_id']}")
     
-    # 파일 검증
     if 'file' not in request.files:
+        logger.error("No file provided in request")
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
     
-    if not allowed_file(file.filename):
+    if file.filename == '' or not allowed_file(file.filename):
+        logger.error(f"Invalid file: {file.filename}")
         return jsonify({'error': 'Invalid file type. Allowed: mp4, mov, avi, mkv'}), 400
     
     if file.content_length and file.content_length > MAX_FILE_SIZE:
-        return jsonify({'error': f'File too large. Max: {MAX_FILE_SIZE / 1024 / 1024}MB'}), 400
+        logger.error(f"File too large: {file.content_length} bytes")
+        return jsonify({'error': f'File too large. Max: {MAX_FILE_SIZE/1024/1024}MB'}), 400
     
-    # 파일 저장
     filename = secure_filename(file.filename)
+    logger.info(f"File received: {filename}")
+    
+    # Save file temporarily
     upload_dir = '/tmp/uploads'
     os.makedirs(upload_dir, exist_ok=True)
     filepath = os.path.join(upload_dir, filename)
-    file.save(filepath)
     
-    # 메타데이터 가져오기
+    try:
+        file.save(filepath)
+        logger.info(f"File saved to: {filepath}")
+    except Exception as e:
+        logger.error(f"Failed to save file: {str(e)}")
+        return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
+    
+    # Get metadata
     title = request.form.get('title', filename)
     description = request.form.get('description', '')
-    tags = request.form.get('tags', '').split(',')
-    tags = [tag.strip() for tag in tags if tag.strip()]
+    tags = [t.strip() for t in request.form.get('tags', '').split(',') if t.strip()]
     
-    # YouTube 업로드 시도
+    logger.info(f"Metadata - Title: {title}, Tags: {tags}")
+    
     try:
-        # 사용자의 access_token 가져오기
-        user = db.session.query(User).filter_by(id=user_id).first()
-        if not user or not user.access_token:
+        # Get user from database
+        user = db.session.query(User).filter_by(id=session['user_id']).first()
+        
+        if not user:
+            logger.error(f"User not found: {session['user_id']}")
+            return jsonify({'error': 'User not found'}), 401
+        
+        if not user.access_token:
+            logger.error(f"No access token for user: {session['user_id']}")
             return jsonify({'error': 'YouTube access token not available'}), 401
         
-        # YouTubeService 초기화
-        yt_service = YouTubeService(
-            access_token=user.access_token,
-            refresh_token=user.refresh_token
-        )
+        logger.info(f"User found: {user.email}, uploading to YouTube...")
         
-        # YouTube에 업로드
-        result = yt_service.upload_video(filepath, title, description, tags)
+        # Upload to YouTube
+        yt = YouTubeService(access_token=user.access_token, refresh_token=user.refresh_token)
+        logger.info("YouTubeService initialized, calling upload_video()...")
+        
+        result = yt.upload_video(filepath, title, description, tags)
+        logger.info(f"YouTube upload result: {result}")
         
         if 'error' in result:
+            logger.error(f"YouTube upload error: {result['error']}")
+            
+            # Save failed record
+            error_rec = Upload(
+                user_id=session['user_id'],
+                filename=filename,
+                filepath=filepath,
+                status='failed',
+                error_message=result['error'],
+                title=title,
+                description=description,
+                tags=','.join(tags)
+            )
+            db.session.add(error_rec)
+            db.session.commit()
+            logger.info(f"Failed upload record saved: {error_rec.id}")
+            
             return jsonify({'error': result['error']}), 500
         
-        # DB에 업로드 기록 저장
-        upload_record = Upload(
-            user_id=user_id,
+        # Save successful record
+        logger.info(f"Upload successful! Video ID: {result.get('video_id')}")
+        
+        record = Upload(
+            user_id=session['user_id'],
             filename=filename,
             filepath=filepath,
             youtube_video_id=result.get('video_id'),
@@ -82,12 +123,16 @@ def upload_video():
             description=description,
             tags=','.join(tags)
         )
-        db.session.add(upload_record)
+        db.session.add(record)
         db.session.commit()
+        logger.info(f"Upload record saved: {record.id}")
         
-        # 파일 삭제 (선택사항)
+        # Clean up temporary file
         if os.path.exists(filepath):
             os.remove(filepath)
+            logger.info(f"Temporary file deleted: {filepath}")
+        
+        logger.info("=== Upload completed successfully ===")
         
         return jsonify({
             'success': True,
@@ -97,40 +142,62 @@ def upload_video():
         }), 200
     
     except Exception as e:
-        # DB에 실패 기록 저장
-        upload_record = Upload(
-            user_id=user_id,
-            filename=filename,
-            filepath=filepath,
-            status='failed',
-            error_message=str(e),
-            title=title,
-            description=description,
-            tags=','.join(tags)
-        )
-        db.session.add(upload_record)
-        db.session.commit()
+        logger.error(f"Upload exception: {str(e)}", exc_info=True)
+        
+        # Save error record
+        try:
+            error_rec = Upload(
+                user_id=session['user_id'],
+                filename=filename,
+                filepath=filepath,
+                status='failed',
+                error_message=str(e),
+                title=title,
+                description=description,
+                tags=','.join(tags)
+            )
+            db.session.add(error_rec)
+            db.session.commit()
+            logger.info(f"Error upload record saved: {error_rec.id}")
+        except Exception as db_error:
+            logger.error(f"Failed to save error record: {str(db_error)}")
         
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @upload_bp.route('/history', methods=['GET'])
 def upload_history():
+    """Get upload history for current user"""
+    logger.info("GET /upload/history - fetching upload history")
+    
     if 'user_id' not in session:
+        logger.error("Not authenticated")
         return jsonify({'error': 'Not authenticated'}), 401
     
-    user_id = session['user_id']
-    uploads = Upload.query.filter_by(user_id=user_id).all()
+    logger.info(f"Fetching history for user: {session['user_id']}")
     
-    history = [{
-        'id': u.id,
-        'filename': u.filename,
-        'youtube_video_id': u.youtube_video_id,
-        'youtube_url': u.youtube_url,
-        'status': u.status,
-        'title': u.title,
-        'description': u.description,
-        'tags': u.tags,
-        'created_at': u.created_at.isoformat() if u.created_at else None
-    } for u in uploads]
+    try:
+        uploads = Upload.query.filter_by(user_id=session['user_id']).all()
+        logger.info(f"Found {len(uploads)} uploads")
+        
+        history = [
+            {
+                'id': u.id,
+                'filename': u.filename,
+                'youtube_video_id': u.youtube_video_id,
+                'youtube_url': u.youtube_url,
+                'status': u.status,
+                'title': u.title,
+                'description': u.description,
+                'tags': u.tags,
+                'error_message': u.error_message,
+                'created_at': u.created_at.isoformat() if u.created_at else None
+            }
+            for u in uploads
+        ]
+        
+        logger.info(f"Returning {len(history)} upload records")
+        return jsonify(history), 200
     
-    return jsonify(history), 200
+    except Exception as e:
+        logger.error(f"History fetch error: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to fetch history: {str(e)}'}), 500
