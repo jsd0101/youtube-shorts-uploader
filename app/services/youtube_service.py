@@ -1,67 +1,68 @@
 import requests
-import json
 import os
 
-class YouTubeService:
-    """YouTube Data API v3 via raw HTTP requests"""
-    YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
-    YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3"
 
+class YouTubeService:
+    """YouTube Data API v3 - Simple HTTP Implementation"""
+    
     def __init__(self, access_token=None, refresh_token=None):
         self.access_token = access_token
         self.refresh_token = refresh_token
-
-    def upload_video(self, file_path, title, description='', tags=None):
-        """Upload video to YouTube using resumable upload protocol"""
+        self.upload_url = "https://www.googleapis.com/upload/youtube/v3/videos"
+        self.api_url = "https://www.googleapis.com/youtube/v3"
+    
+    def upload_video(self, file_path, title, description="", tags=None):
+        """Upload video to YouTube"""
         if not self.access_token:
-            return {'error': 'Access token not available'}
+            return {'error': 'No access token'}
+        
+        if not os.path.exists(file_path):
+            return {'error': 'File not found'}
         
         try:
-            # Prepare video metadata
-            video_body = {
+            # Prepare metadata
+            metadata = {
                 'snippet': {
                     'title': title,
                     'description': description,
-                    'tags': tags or [],
-                    'categoryId': '22',
-                    'defaultLanguage': 'ko',
-                    'defaultAudioLanguage': 'ko'
+                    'tags': tags if tags else [],
+                    'categoryId': '22'
                 },
-                'status': {
-                    'privacyStatus': 'public',
-                    'selfDeclaredMadeForKids': False
-                }
+                'status': {'privacyStatus': 'public'}
             }
             
-            # Step 1: Initiate resumable upload
+            # Step 1: Start resumable upload
             headers = {
                 'Authorization': f'Bearer {self.access_token}',
                 'X-Goog-Upload-Protocol': 'resumable',
                 'X-Goog-Upload-Command': 'start',
-                'X-Goog-Upload-Header-Content-Length': str(os.path.getsize(file_path)),
-                'X-Goog-Upload-Header-Content-Type': 'video/mp4',
                 'Content-Type': 'application/json'
             }
+            
+            file_size = os.path.getsize(file_path)
+            headers['X-Goog-Upload-Header-Content-Length'] = str(file_size)
+            headers['X-Goog-Upload-Header-Content-Type'] = 'video/mp4'
+            
             params = {'part': 'snippet,status', 'uploadType': 'resumable'}
             
             response = requests.post(
-                self.YOUTUBE_UPLOAD_URL,
+                self.upload_url,
+                json=metadata,
                 headers=headers,
-                json=video_body,
                 params=params,
                 timeout=30
             )
             
             if response.status_code not in [200, 201]:
-                return {'error': f'Failed to initiate upload: {response.text}'}
+                return {'error': f'Failed to start upload: {response.text}'}
             
             upload_uri = response.headers.get('Location')
             if not upload_uri:
-                return {'error': 'No upload URI received'}
+                return {'error': 'No upload URI'}
             
-            # Step 2: Upload video file
+            # Step 2: Upload file
             with open(file_path, 'rb') as f:
-                video_data = f.read()
+                file_data = f.read()
             
             upload_headers = {
                 'X-Goog-Upload-Command': 'upload, finalize',
@@ -71,8 +72,8 @@ class YouTubeService:
             
             upload_response = requests.put(
                 upload_uri,
+                data=file_data,
                 headers=upload_headers,
-                data=video_data,
                 timeout=300
             )
             
@@ -83,7 +84,7 @@ class YouTubeService:
             video_id = result.get('id')
             
             if not video_id:
-                return {'error': 'No video ID in response'}
+                return {'error': 'No video ID'}
             
             return {
                 'success': True,
@@ -92,39 +93,37 @@ class YouTubeService:
             }
         
         except Exception as e:
-            return {'error': f'Upload error: {str(e)}'}
-
+            return {'error': f'Exception: {str(e)}'}
+    
     def get_channel_info(self):
-        """Get YouTube channel information"""
+        """Get YouTube channel info"""
         if not self.access_token:
-            return {'error': 'Access token not available'}
+            return {'error': 'No access token'}
         
         try:
             headers = {'Authorization': f'Bearer {self.access_token}'}
-            params = {'part': 'snippet,contentDetails,statistics', 'mine': 'true'}
+            params = {'part': 'snippet,statistics', 'mine': 'true'}
             
             response = requests.get(
-                f'{self.YOUTUBE_API_URL}/channels',
+                f'{self.api_url}/channels',
                 headers=headers,
                 params=params,
                 timeout=10
             )
             
             if response.status_code != 200:
-                return {'error': 'Failed to fetch channel info'}
+                return {'error': 'Failed to get channel'}
             
             data = response.json()
             if not data.get('items'):
-                return {'error': 'No channel found'}
+                return {'error': 'No channel'}
             
             channel = data['items'][0]
             return {
                 'channel_id': channel['id'],
                 'title': channel['snippet']['title'],
-                'description': channel['snippet']['description'],
-                'subscriber_count': channel['statistics'].get('subscriberCount', 0),
-                'video_count': channel['statistics'].get('videoCount', 0)
+                'subscribers': channel['statistics'].get('subscriberCount', 0)
             }
         
         except Exception as e:
-            return {'error': f'Error: {str(e)}'}
+            return {'error': f'Exception: {str(e)}'}
