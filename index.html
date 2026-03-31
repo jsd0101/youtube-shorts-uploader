@@ -116,6 +116,16 @@
             animation: slideIn 0.3s ease;
         }
         
+        .result.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .result.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        
         @keyframes slideIn {
             from {
                 opacity: 0;
@@ -138,25 +148,6 @@
             font-size: 14px;
             white-space: pre-wrap;
             font-family: 'Courier New', monospace;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-top: 10px;
-        }
-        
-        .status-running {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
         }
         
         .loading {
@@ -207,7 +198,7 @@
     <script>
         const baseURL = window.location.origin;
         
-        function showResult(title, data) {
+        function showResult(title, data, isError = false) {
             const resultDiv = document.getElementById('result');
             const titleDiv = document.getElementById('resultTitle');
             const contentDiv = document.getElementById('resultContent');
@@ -219,7 +210,8 @@
                 contentDiv.textContent = data;
             }
             
-            resultDiv.classList.add('show');
+            resultDiv.classList.remove('success', 'error');
+            resultDiv.classList.add('show', isError ? 'error' : 'success');
         }
         
         function showLoading(title) {
@@ -230,58 +222,75 @@
             titleDiv.textContent = title;
             contentDiv.innerHTML = '<div class="loading"></div> 로딩 중...';
             resultDiv.classList.add('show');
+            resultDiv.classList.remove('success', 'error');
         }
         
         function checkStatus() {
+            console.log('상태 확인 시작...');
             showLoading('상태 확인 중...');
             fetch(`${baseURL}/status`)
-                .then(r => r.json())
+                .then(response => {
+                    console.log('응답 상태:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
-                    showResult('✅ 서버 상태', data);
+                    console.log('서버 응답:', data);
+                    showResult('✅ 서버 상태', data, false);
                 })
                 .catch(err => {
-                    showResult('❌ 오류', err.message);
+                    console.error('에러:', err);
+                    showResult('❌ 상태 확인 실패', err.message, true);
                 });
         }
         
         function login() {
-            showLoading('Google 로그인 중...');
-            fetch(`${baseURL}/auth/login`)
-                .then(r => r.json())
-                .then(data => {
-                    showResult('🔐 로그인 정보', data);
-                })
-                .catch(err => {
-                    showResult('❌ 오류', err.message);
-                });
+            console.log('Google 로그인 시작...');
+            // fetch가 아닌 window.location.href 사용 (리다이렉트 필요)
+            window.location.href = `${baseURL}/auth/login`;
         }
         
         function logout() {
+            console.log('로그아웃 시작...');
             showLoading('로그아웃 중...');
             fetch(`${baseURL}/auth/logout`)
-                .then(r => r.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
-                    showResult('🚪 로그아웃', data);
+                    console.log('로그아웃 성공:', data);
+                    showResult('✅ 로그아웃 완료', data, false);
+                    // 2초 후 상태 새로고침
+                    setTimeout(() => checkStatus(), 2000);
                 })
                 .catch(err => {
-                    showResult('❌ 오류', err.message);
+                    console.error('에러:', err);
+                    showResult('❌ 로그아웃 실패', err.message, true);
                 });
         }
         
         function uploadVideo() {
-            showLoading('업로드 준비 중...');
+            console.log('업로드 상태 확인...');
+            showLoading('업로드 상태 확인 중...');
             fetch(`${baseURL}/upload`)
-                .then(r => r.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
-                    showResult('📤 업로드 상태', data);
+                    console.log('업로드 응답:', data);
+                    showResult('📤 업로드 상태', data, false);
                 })
                 .catch(err => {
-                    showResult('❌ 오류', err.message);
+                    console.error('에러:', err);
+                    showResult('❌ 업로드 확인 실패', err.message, true);
                 });
         }
         
         // 페이지 로드 시 상태 확인
         window.addEventListener('load', () => {
+            console.log('페이지 로드됨, 상태 확인 중...');
             checkStatus();
         });
     </script>
