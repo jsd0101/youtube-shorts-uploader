@@ -2,7 +2,7 @@ import os
 from datetime import timedelta
 
 class Config:
-    """기본 설정"""
+    """공통 설정"""
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SESSION_COOKIE_SECURE = True
@@ -17,9 +17,9 @@ class DevelopmentConfig(Config):
     SESSION_COOKIE_SECURE = False
 
 class ProductionConfig(Config):
-    """프로덕션 환경"""
+    """프로덕션 환경 (Railway)"""
     DEBUG = False
-    # Railway 환경에서는 DATABASE_URL이 자동으로 설정됨
+    # Railway에서 DATABASE_URL이 없으면 SQLite 사용 (fallback)
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///youtube_shorts.db')
 
 config = {
