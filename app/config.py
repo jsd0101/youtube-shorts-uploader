@@ -19,9 +19,8 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """프로덕션 환경"""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
-    if SQLALCHEMY_DATABASE_URI and not SQLALCHEMY_DATABASE_URI.startswith('postgresql://'):
-        raise ValueError("프로덕션에서는 PostgreSQL 필수입니다")
+    # Railway 환경에서는 DATABASE_URL이 자동으로 설정됨
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///youtube_shorts.db')
 
 config = {
     'development': DevelopmentConfig,
