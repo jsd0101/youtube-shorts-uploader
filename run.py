@@ -1,25 +1,34 @@
 import os
+import sys
 from dotenv import load_dotenv
-from app import create_app
 
 # .env 파일 로드
 load_dotenv()
 
-# 설정 이름 (기본값: development)
-config_name = os.getenv('FLASK_ENV', 'development')
+try:
+    from app import create_app
+    
+    config_name = os.getenv('FLASK_ENV', 'development')
+    print(f"[INFO] Creating app with config: {config_name}", file=sys.stderr)
+    
+    app = create_app(config_name)
+    
+    print(f"[INFO] App created successfully", file=sys.stderr)
+    print(f"[INFO] Registered routes:", file=sys.stderr)
+    for rule in app.url_map.iter_rules():
+        print(f"  {rule.rule} -> {rule.endpoint}", file=sys.stderr)
+    
+except Exception as e:
+    print(f"[ERROR] Failed to create app: {str(e)}", file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)
 
-# Flask 앱 생성
-app = create_app(config_name)
-
+# Gunicorn WSGI 진입점
 if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
     port = int(os.getenv('PORT', 5000))
     debug = config_name == 'development'
     
-    print('=' * 60)
-    print('INFO: Flask 서버 시작')
-    print(f'HOST={host}, PORT={port}, DEBUG={debug}')
-    print(f'FLASK_ENV={config_name}')
-    print('=' * 60)
-    
+    print(f"[INFO] Starting Flask server: {host}:{port}, DEBUG={debug}", file=sys.stderr)
     app.run(host=host, port=port, debug=debug)
