@@ -1,35 +1,26 @@
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from app.extensions import db, oauth
 from flask_cors import CORS
-from authlib.integrations.flask_client import OAuth
 
-db = SQLAlchemy()
-oauth = OAuth()
-
-def create_app(config_name='development'):
+def create_app(config_name=None):
     """Flask 앱 팩토리"""
-    app = Flask(__name__)
     
-    # 환경변수에서 설정 이름 가져오기
+    # 설정 이름 결정
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
     
-    # config.py에서 설정 가져오기
+    # Flask 앱 생성
+    app = Flask(__name__)
+    
+    # 설정 로드
     from app.config import config
     app.config.from_object(config[config_name])
     
-    # 데이터베이스 초기화
+    # 확장 초기화
     db.init_app(app)
-    
-    # OAuth 초기화
     oauth.init_app(app)
-    
-    # CORS 초기화
     CORS(app)
-    
-    # SECRET_KEY 설정
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     # Google OAuth 설정
     oauth.register(
@@ -40,19 +31,14 @@ def create_app(config_name='development'):
         client_kwargs={'scope': 'openid email profile'}
     )
     
-    # 데이터베이스 테이블 생성
+    # 앱 컨텍스트 내에서 초기화
     with app.app_context():
+        # 데이터베이스 테이블 생성
         db.create_all()
-    
-    # 블루프린트 등록
-    from app.routes import auth_bp, upload_bp
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(upload_bp)
-    
-    # 라우트 정보 출력
-    print("\n=== Registered Routes ===")
-    for rule in app.url_map.iter_rules():
-        print(f"{rule.rule} -> {rule.endpoint} [{', '.join(rule.methods - {'HEAD', 'OPTIONS'})}]")
-    print("========================\n")
+        
+        # Blueprint 등록
+        from app.routes import auth_bp, upload_bp
+        app.register_blueprint(auth_bp)
+        app.register_blueprint(upload_bp)
     
     return app
