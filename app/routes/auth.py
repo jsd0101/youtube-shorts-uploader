@@ -1,7 +1,8 @@
 from flask import jsonify, session, url_for
-from app.routes import auth_bp
 from app import oauth
 from app.services.auth_service import AuthService
+
+auth_bp = oauth.create_client('google')
 
 @auth_bp.route('/login', methods=['GET'])
 def login():
@@ -21,13 +22,13 @@ def authorize():
             'user': user
         }), 200
     except Exception as e:
-        return jsonify({'error': f'Authorization failed: {str(e)}'}), 400
+        return jsonify({'error': f'Authorization failed: {str(e)}'})
 
 @auth_bp.route('/logout', methods=['GET', 'POST'])
 def logout():
     """로그아웃"""
     AuthService.clear_user_session()
-    return jsonify({'message': 'Logged out successfully'}), 200
+    return jsonify({'message': 'Logged out successfully'})
 
 @auth_bp.route('/status', methods=['GET'])
 def status():
