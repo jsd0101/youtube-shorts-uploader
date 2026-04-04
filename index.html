@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Shorts Auto Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .auth-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .login-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .login-btn:hover {
+            background: #357ae8;
+        }
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-left: 10px;
+        }
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        .user-info {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+        .user-name {
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .user-email {
+            color: #666;
+            font-size: 14px;
+        }
+        .upload-section {
+            display: none;
+        }
+        .upload-section.active {
+            display: block;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+        }
+        .upload-area:hover {
+            background: #eef1ff;
+            border-color: #764ba2;
+        }
+        .upload-area.dragover {
+            background: #e8ecff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .upload-text {
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .upload-subtext {
+            color: #999;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        #fileInput {
+            display: none;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .upload-btn {
+            flex: 1;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .upload-btn:hover {
+            background: #5568d3;
+        }
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .clear-btn {
+            flex: 1;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .clear-btn:hover {
+            background: #e0e0e0;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-container.active {
+            display: block;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+        .message.active {
+            display: block;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .history-section {
+            margin-top: 40px;
+            border-top: 2px solid #f0f0f0;
+            padding-top: 30px;
+        }
+        .history-section h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .history-list {
+            display: none;
+        }
+        .history-list.active {
+            display: block;
+        }
+        .history-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .history-item-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .history-item-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .history-item-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .history-item-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 12px;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        .history-item-link:hover {
+            text-decoration: underline;
+        }
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            .upload-area {
+                padding: 30px 20px;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 YouTube Shorts Auto Uploader</h1>
+        <p class="subtitle">동영상을 자동으로 YouTube Shorts에 업로드하세요</p>
+
+        <!-- Auth Section -->
+        <div class="auth-section">
+            <button class="login-btn" id="loginBtn" onclick="loginWithGoogle()">
+                <span>🔐</span> Google로 로그인
+            </button>
+            <button class="logout-btn" id="logoutBtn" style="display: none;" onclick="logout()">로그아웃</button>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <img id="userPicture" src="" alt="User Picture">
+                <div class="user-name" id="userName"></div>
+                <div class="user-email" id="userEmail"></div>
+            </div>
+        </div>
+
+        <!-- Message Display -->
+        <div class="message" id="message"></div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">동영상 파일을 여기로 드래그하거나 클릭하세요</div>
+                <div class="upload-subtext">지원 형식: MP4, MOV, AVI, MKV (최대 500MB)</div>
+            </div>
+            <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska" onchange="handleFileSelect(event)">
+
+            <!-- Metadata Form -->
+            <div class="form-group">
+                <label for="videoTitle">동영상 제목 *</label>
+                <input type="text" id="videoTitle" placeholder="예: 재미있는 쇼츠 영상" required>
+            </div>
+
+            <div class="form-group">
+                <label for="videoDescription">설명</label>
+                <textarea id="videoDescription" placeholder="동영상에 대한 설명을 입력하세요"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="videoTags">태그 (쉼표로 구분)</label>
+                <input type="text" id="videoTags" placeholder="예: 쇼츠, 재미, 일상">
+            </div>
+
+            <!-- Progress -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">업로드 중... 0%</div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="button-group">
+                <button class="upload-btn" id="uploadBtn" onclick="uploadVideo()" disabled>
+                    🚀 YouTube에 업로드
+                </button>
+                <button class="clear-btn" id="clearBtn" onclick="clearForm()" style="display: none;">
+                    🗑️ 초기화
+                </button>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div class="history-section" id="historySection" style="display: none;">
+            <h2>📋 업로드 이력</h2>
+            <div class="history-list" id="historyList">
+                <div class="empty-state">업로드 이력이 없습니다</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드 시 로그인 상태 확인
+        window.addEventListener('load', checkLoginStatus);
+
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                if (data.authenticated) {
+                    showLoggedIn(data);
+                    loadUploadHistory();
+                } else {
+                    showLoggedOut();
+                }
+            } catch (error) {
+                console.error('Error checking login status:', error);
+                showLoggedOut();
+            }
+        }
+
+        function showLoggedIn(userData) {
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('uploadSection').classList.add('active');
+            document.getElementById('historySection').style.display = 'block';
+
+            if (userData.picture) {
+                document.getElementById('userPicture').src = userData.picture;
+            }
+            if (userData.name) {
+                document.getElementById('userName').textContent = userData.name;
+            }
+            if (userData.email) {
+                document.getElementById('userEmail').textContent = userData.email;
+            }
+        }
+
+        function showLoggedOut() {
+            document.getElementById('loginBtn').style.display = 'inline-block';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('uploadSection').classList.remove('active');
+            document.getElementById('historySection').style.display = 'none';
+        }
+
+        function loginWithGoogle() {
+            window.location.href = '/auth/login';
+        }
+
+        function logout() {
+            fetch('/auth/logout', { method: 'POST' })
+                .then(() => {
+                    showLoggedOut();
+                    showMessage('로그아웃되었습니다', 'info');
+                })
+                .catch(error => {
+                    console.error('Logout error:', error);
+                    showMessage('로그아웃 중 오류가 발생했습니다', 'error');
+                });
+        }
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect({ target: { files } });
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const validTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+            if (!validTypes.includes(file.type)) {
+                showMessage('지원하지 않는 파일 형식입니다', 'error');
+                return;
+            }
+
+            if (file.size > 500 * 1024 * 1024) {
+                showMessage('파일이 너무 큽니다 (최대 500MB)', 'error');
+                return;
+            }
+
+            document.getElementById('uploadBtn').disabled = false;
+            document.getElementById('clearBtn').style.display = 'inline-block';
+            showMessage(`선택된 파일: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`, 'info');
+        }
+
+        async function uploadVideo() {
+            const file = fileInput.files[0];
+            const title = document.getElementById('videoTitle').value;
+
+            if (!file) {
+                showMessage('파일을 선택해주세요', 'error');
+                return;
+            }
+
+            if (!title.trim()) {
+                showMessage('동영상 제목을 입력해주세요', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', title);
+            formData.append('description', document.getElementById('videoDescription').value);
+            formData.append('tags', document.getElementById('videoTags').value);
+
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('progressContainer').classList.add('active');
+
+            try {
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        document.getElementById('progressFill').style.width = percentComplete + '%';
+                        document.getElementById('progressText').textContent = `업로드 중... ${Math.round(percentComplete)}%`;
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        showMessage('✅ YouTube에 성공적으로 업로드되었습니다!', 'success');
+                        clearForm();
+                        loadUploadHistory();
+                    } else {
+                        const response = JSON.parse(xhr.responseText);
+                        showMessage(`❌ 업로드 실패: ${response.error || '알 수 없는 오류'}`, 'error');
+                    }
+                    document.getElementById('progressContainer').classList.remove('active');
+                    document.getElementById('uploadBtn').disabled = false;
+                });
+
+                xhr.addEventListener('error', () => {
+                    showMessage('❌ 업로드 중 오류가 발생했습니다', 'error');
+                    document.getElementById('progressContainer').classList.remove('active');
+                    document.getElementById('uploadBtn').disabled = false;
+                });
+
+                xhr.open('POST', '/upload/', true);
+                xhr.send(formData);
+            } catch (error) {
+                console.error('Upload error:', error);
+                showMessage('❌ 업로드 중 오류가 발생했습니다', 'error');
+                document.getElementById('progressContainer').classList.remove('active');
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        function clearForm() {
+            fileInput.value = '';
+            document.getElementById('videoTitle').value = '';
+            document.getElementById('videoDescription').value = '';
+            document.getElementById('videoTags').value = '';
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('clearBtn').style.display = 'none';
+            document.getElementById('progressContainer').classList.remove('active');
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        async function loadUploadHistory() {
+            try {
+                const response = await fetch('/upload/history');
+                const uploads = await response.json();
+
+                const historyList = document.getElementById('historyList');
+                if (uploads.length === 0) {
+                    historyList.innerHTML = '<div class="empty-state">업로드 이력이 없습니다</div>';
+                    return;
+                }
+
+                historyList.innerHTML = uploads.map(upload => `
+                    <div class="history-item">
+                        <div class="history-item-title">${upload.title || upload.filename}</div>
+                        <div class="history-item-info">
+                            <strong>파일:</strong> ${upload.filename}<br>
+                            <strong>업로드:</strong> ${new Date(upload.created_at).toLocaleString('ko-KR')}
+                        </div>
+                        <span class="history-item-status status-${upload.status}">
+                            ${upload.status === 'completed' ? '✅ 완료' : upload.status === 'pending' ? '⏳ 대기중' : '❌ 실패'}
+                        </span>
+                        ${upload.youtube_url ? `<a href="${upload.youtube_url}" target="_blank" class="history-item-link">YouTube에서 보기 →</a>` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message active ${type}`;
+            setTimeout(() => {
+                messageEl.classList.remove('active');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
