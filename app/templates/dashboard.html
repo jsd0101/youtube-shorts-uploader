@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Shorts 업로더</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input, textarea, button { padding: 10px; font-size: 14px; }
+        button { background-color: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #357ae8; }
+        .logout { background-color: #ea4335; }
+        .logout:hover { background-color: #d33425; }
+    </style>
+</head>
+<body>
+    <h1>YouTube Shorts 업로더</h1>
+    <p>환영합니다, <strong>{{ user.email }}</strong>님!</p>
+    
+    <form method="POST" action="/upload">
+        <label>비디오 URL:</label>
+        <input type="url" name="video_url" placeholder="https://example.com/video.mp4" required>
+        
+        <label>제목:</label>
+        <input type="text" name="title" placeholder="영상 제목" required>
+        
+        <label>설명:</label>
+        <textarea name="description" placeholder="영상 설명" rows="4"></textarea>
+        
+        <button type="submit">업로드</button>
+    </form>
+    
+    <br>
+    <a href="/auth/logout"><button class="logout">로그아웃</button></a>
+</body>
+</html>
